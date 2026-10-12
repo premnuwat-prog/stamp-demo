@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Stamp Demo — พนักงาน</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f5f7; --card: #fff; --ink: #1a1d24; --muted: #6b7280; --line: #e5e7eb;
+    --accent: #4f46e5; --accent-ink: #fff; --ok: #059669; --ok-bg: #ecfdf5; --err: #dc2626; --err-bg: #fef2f2;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font-family: 'IBM Plex Sans Thai', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 440px; margin: 0 auto; padding: 16px 16px 40px; }
+  header { display: flex; justify-content: space-between; align-items: center; padding: 4px 2px 16px; }
+  header .tag { font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+  header .branch { font-weight: 700; font-size: 18px; }
+  .card { background: var(--card); border-radius: 16px; padding: 20px; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+  h2 { margin: 0 0 4px; font-size: 20px; }
+  p.sub { margin: 0 0 20px; color: var(--muted); font-size: 14px; }
+  label { display: block; font-size: 14px; font-weight: 500; margin: 0 0 6px; }
+  input { width: 100%; font: inherit; font-size: 20px; padding: 12px 14px; border: 1.5px solid var(--line);
+          border-radius: 12px; outline: none; margin-bottom: 16px; background: #fff; color: var(--ink); }
+  input:focus { border-color: var(--accent); }
+  .preview { display: flex; justify-content: space-between; align-items: baseline; padding: 14px 16px;
+             background: var(--bg); border-radius: 12px; margin-bottom: 20px; }
+  .preview b { font-size: 28px; }
+  button { width: 100%; font: inherit; font-size: 17px; font-weight: 600; padding: 14px; border: 0;
+           border-radius: 12px; background: var(--accent); color: var(--accent-ink); cursor: pointer; }
+  button:disabled { opacity: .5; }
+  button.ghost { background: transparent; color: var(--accent); border: 1.5px solid var(--line); margin-top: 12px; }
+  .msg { padding: 12px 14px; border-radius: 12px; font-size: 14px; margin-bottom: 16px; display: none; }
+  .msg.err { display: block; background: var(--err-bg); color: var(--err); }
+  .qr-box { text-align: center; }
+  #qr { display: inline-block; padding: 14px; background: #fff; border: 1px solid var(--line); border-radius: 16px; margin: 8px 0 12px; }
+  #qr img, #qr canvas { display: block; }
+  .pts { font-size: 15px; color: var(--muted); }
+  .pts b { color: var(--ink); font-size: 22px; }
+  .code { font-family: ui-monospace, Menlo, monospace; font-size: 22px; letter-spacing: .18em; font-weight: 600; margin: 6px 0 2px; }
+  .timer { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px; }
+  .status { margin-top: 16px; padding: 12px; border-radius: 12px; font-weight: 600; background: var(--bg); color: var(--muted); }
+  .status.ok { background: var(--ok-bg); color: var(--ok); }
+  .status.err { background: var(--err-bg); color: var(--err); }
+  .hidden { display: none !important; }
+  .loading { text-align: center; padding: 60px 0; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <div class="tag">Staff · Stamp Demo</div>
+      <div class="branch" id="branchName">—</div>
+    </div>
+  </header>
+
+  <div id="vLoading" class="loading">กำลังโหลด…</div>
+
+  <!-- ลงทะเบียนพนักงาน -->
+  <div id="vRegister" class="card hidden">
+    <h2>ลงทะเบียนพนักงาน</h2>
+    <p class="sub">กรอก PIN ของสาขา (ทำครั้งเดียว)</p>
+    <div id="regMsg" class="msg"></div>
+    <label for="pin">PIN สาขา</label>
+    <input id="pin" inputmode="numeric" maxlength="6" autocomplete="off">
+    <button id="btnRegister">ลงทะเบียน</button>
+  </div>
+
+  <!-- กรอกใบเสร็จ -->
+  <div id="vForm" class="card hidden">
+    <h2>สร้าง QR สะสมแต้ม</h2>
+    <p class="sub">ทุก 100 บาท = 1 แต้ม</p>
+    <div id="formMsg" class="msg"></div>
+    <label for="receipt">เลขใบเสร็จ</label>
+    <input id="receipt" autocomplete="off" autocapitalize="characters">
+    <label for="amount">ยอดเงิน (บาท)</label>
+    <input id="amount" inputmode="decimal" autocomplete="off">
+    <div class="preview"><span>ลูกค้าจะได้</span><span><b id="ptsPreview">0</b> แต้ม</span></div>
+    <button id="btnCreate">สร้าง QR</button>
+  </div>
+
+  <!-- แสดง QR -->
+  <div id="vQr" class="card qr-box hidden">
+    <div class="pts">ใบเสร็จ <span id="qrReceipt"></span> · <b id="qrPoints"></b> แต้ม</div>
+    <div id="qr"></div>
+    <div class="pts">สแกนไม่ได้? ให้ลูกค้ากรอกรหัส</div>
+    <div class="code" id="qrCode"></div>
+    <div class="timer">หมดอายุใน <span id="qrTimer">--:--</span></div>
+    <div class="status" id="qrStatus">รอลูกค้าสแกน…</div>
+    <button class="ghost" id="btnNew">รายการใหม่</button>
+  </div>
+
+  <div id="vError" class="card hidden">
+    <h2>เกิดข้อผิดพลาด</h2>
+    <p class="sub" id="errText"></p>
+    <button onclick="location.reload()">โหลดใหม่</button>
+  </div>
+</div>
+
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+const CONFIG = {
+  LIFF_ID: '2011980277-5lEP6Z1L',     // LIFF ID ของหน้า Staff
+  API_URL: 'https://script.google.com/macros/s/AKfycbyMks7dA8tzqFwd-_z6_oo5QUvoqmqfwAaydYW5Z83uEYdtibXg0XKvv6hHvkK5qqKa/exec',
+  BAHT_PER_POINT: 100,
+};
+
+const $ = id => document.getElementById(id);
+const views = ['vLoading', 'vRegister', 'vForm', 'vQr', 'vError'];
+const show = v => views.forEach(x => $(x).classList.toggle('hidden', x !== v));
+const setMsg = (el, text) => { $(el).textContent = text || ''; $(el).className = text ? 'msg err' : 'msg'; };
+
+async function api(action, data = {}) {
+  const res = await fetch(CONFIG.API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action, idToken: liff.getIDToken(), ...data }),
+  });
+  const j = await res.json();
+  if (!j.ok) { const e = new Error(j.error); e.code = j.code; throw e; }
+  return j;
+}
+
+function fatal(e) { $('errText').textContent = e.message || String(e); show('vError'); }
+
+async function main() {
+  try {
+    await liff.init({ liffId: CONFIG.LIFF_ID });
+    if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href }); return; }
+    const me = await api('staffMe');
+    if (!me.registered) return show('vRegister');
+    if (!me.active) throw new Error('บัญชีพนักงานถูกปิดใช้งาน');
+    $('branchName').textContent = me.branchName;
+    show('vForm');
+  } catch (e) { fatal(e); }
+}
+
+$('btnRegister').onclick = async () => {
+  const btn = $('btnRegister'); btn.disabled = true; setMsg('regMsg');
+  try {
+    const r = await api('registerStaff', { pin: $('pin').value });
+    $('branchName').textContent = r.branchName;
+    show('vForm');
+  } catch (e) { setMsg('regMsg', e.message); }
+  btn.disabled = false;
+};
+
+$('amount').oninput = () => {
+  const n = Math.floor((Number($('amount').value) || 0) / CONFIG.BAHT_PER_POINT);
+  $('ptsPreview').textContent = n;
+};
+
+let pollTimer, tickTimer;
+
+$('btnCreate').onclick = async () => {
+  const btn = $('btnCreate'); btn.disabled = true; setMsg('formMsg');
+  try {
+    const r = await api('createToken', { receiptNo: $('receipt').value, amount: $('amount').value });
+    showQr(r, $('receipt').value.trim().toUpperCase());
+  } catch (e) {
+    if (e.code === 'AUTH') return fatal(e);
+    setMsg('formMsg', e.message);
+  }
+  btn.disabled = false;
+};
+
+function showQr(r, receipt) {
+  $('qr').innerHTML = '';
+  new QRCode($('qr'), { text: r.url, width: 240, height: 240, correctLevel: QRCode.CorrectLevel.M });
+  $('qrReceipt').textContent = receipt;
+  $('qrPoints').textContent = r.points;
+  $('qrCode').textContent = r.token.slice(0, 4) + ' ' + r.token.slice(4);
+  setStatus('รอลูกค้าสแกน…', '');
+  show('vQr');
+
+  const tick = () => {
+    const left = Math.max(0, r.expiresAt - Date.now());
+    const m = Math.floor(left / 60000), s = Math.floor(left / 1000) % 60;
+    $('qrTimer').textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  };
+  tick();
+  clearInterval(tickTimer); tickTimer = setInterval(tick, 1000);
+
+  clearInterval(pollTimer);
+  pollTimer = setInterval(async () => {
+    try {
+      const { status } = await api('tokenStatus', { token: r.token });
+      if (status === 'used') { setStatus('✓ ลูกค้ารับแต้มแล้ว', 'ok'); stopTimers(); }
+      if (status === 'expired') { setStatus('QR หมดอายุ — สร้างใหม่ได้ด้วยเลขใบเสร็จเดิม', 'err'); stopTimers(); }
+    } catch (e) { /* เงียบไว้ ลองใหม่รอบถัดไป */ }
+  }, 3000);
+}
+
+function setStatus(text, cls) { $('qrStatus').textContent = text; $('qrStatus').className = 'status ' + cls; }
+function stopTimers() { clearInterval(pollTimer); clearInterval(tickTimer); }
+
+$('btnNew').onclick = () => {
+  stopTimers();
+  $('receipt').value = ''; $('amount').value = ''; $('ptsPreview').textContent = '0';
+  setMsg('formMsg');
+  show('vForm');
+  $('receipt').focus();
+};
+
+main();
+</script>
+</body>
+</html>

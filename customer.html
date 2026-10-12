@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Stamp Demo — แต้มของฉัน</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f5f7; --card: #fff; --ink: #1a1d24; --muted: #6b7280; --line: #e5e7eb;
+    --accent: #4f46e5; --accent-soft: #eef2ff; --ok: #059669; --ok-bg: #ecfdf5; --err: #dc2626; --err-bg: #fef2f2;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font-family: 'IBM Plex Sans Thai', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 440px; margin: 0 auto; padding: 16px 16px 40px; }
+  .card { background: var(--card); border-radius: 16px; padding: 20px; box-shadow: 0 1px 2px rgba(0,0,0,.05); margin-bottom: 14px; }
+  .loading { text-align: center; padding: 60px 0; color: var(--muted); }
+  .hidden { display: none !important; }
+
+  .banner { border-radius: 16px; padding: 18px 20px; margin-bottom: 14px; }
+  .banner.ok { background: var(--ok-bg); color: var(--ok); }
+  .banner.err { background: var(--err-bg); color: var(--err); }
+  .banner .big { font-size: 26px; font-weight: 700; }
+  .banner .small { font-size: 14px; opacity: .9; }
+
+  .hello { color: var(--muted); font-size: 14px; }
+  .total { display: flex; align-items: baseline; gap: 8px; margin: 2px 0 18px; }
+  .total b { font-size: 48px; line-height: 1; }
+  .stamps { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+  .stamp { aspect-ratio: 1; border-radius: 50%; border: 2px dashed var(--line);
+           display: grid; place-items: center; font-size: 13px; color: var(--muted); font-weight: 600; }
+  .stamp.on { background: var(--accent); border: 2px solid var(--accent); color: #fff; }
+  .stamp.goal { border-color: var(--accent); color: var(--accent); }
+  .stamp.on.goal { color: #fff; }
+
+  h3 { margin: 0 0 12px; font-size: 16px; }
+  .tier { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-top: 1px solid var(--line); }
+  .tier:first-of-type { border-top: 0; }
+  .tier .name { font-weight: 500; }
+  .tier .note { font-size: 12px; color: var(--muted); }
+  .pill { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: var(--bg); color: var(--muted); white-space: nowrap; }
+  .pill.ready { background: var(--accent-soft); color: var(--accent); }
+
+  .row { display: flex; gap: 8px; }
+  input { flex: 1; min-width: 0; font: inherit; font-size: 17px; padding: 12px 14px; border: 1.5px solid var(--line);
+          border-radius: 12px; outline: none; text-transform: uppercase; letter-spacing: .1em; }
+  input:focus { border-color: var(--accent); }
+  button { font: inherit; font-size: 16px; font-weight: 600; padding: 12px 18px; border: 0; border-radius: 12px;
+           background: var(--accent); color: #fff; cursor: pointer; }
+  button:disabled { opacity: .5; }
+
+  .hist { list-style: none; margin: 0; padding: 0; }
+  .hist li { display: flex; justify-content: space-between; padding: 10px 0; border-top: 1px solid var(--line); font-size: 14px; }
+  .hist li:first-child { border-top: 0; }
+  .hist .when { color: var(--muted); font-size: 12px; }
+  .hist .plus { color: var(--ok); font-weight: 600; }
+  .empty { color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="vLoading" class="loading">กำลังโหลด…</div>
+
+  <div id="vMain" class="hidden">
+    <div id="banner" class="banner hidden"></div>
+
+    <div class="card">
+      <div class="hello" id="hello">สวัสดี</div>
+      <div class="total"><b id="total">0</b><span>แต้ม</span></div>
+      <div class="stamps" id="stamps"></div>
+    </div>
+
+    <div class="card">
+      <h3>ของรางวัล</h3>
+      <div id="tiers"></div>
+    </div>
+
+    <div class="card">
+      <h3>มีรหัสจากพนักงาน?</h3>
+      <div class="row">
+        <input id="code" maxlength="9" placeholder="ABCD EFGH" autocomplete="off">
+        <button id="btnClaim">รับแต้ม</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>ประวัติล่าสุด</h3>
+      <ul class="hist" id="hist"></ul>
+    </div>
+  </div>
+</div>
+
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script>
+const CONFIG = {
+  LIFF_ID: '2011980277-oZ3HluAy',     // LIFF ID ของหน้า Customer
+  API_URL: 'https://script.google.com/macros/s/AKfycbyMks7dA8tzqFwd-_z6_oo5QUvoqmqfwAaydYW5Z83uEYdtibXg0XKvv6hHvkK5qqKa/exec',
+};
+const GOAL = 15;
+const TIERS = [
+  { pts: 5,  name: 'ส่วนลดบาร์น้ำ 5 บาท' },
+  { pts: 10, name: 'กระเป๋า มูลค่า 99 บาท', note: 'แลกได้ตั้งแต่ 30 ต.ค. 69' },
+  { pts: 15, name: 'บัตรชมคอนเสิร์ต 10 ม.ค. 70', note: 'ลงทะเบียน 300 ท่านแรก' },
+];
+
+const $ = id => document.getElementById(id);
+
+async function api(action, data = {}) {
+  const res = await fetch(CONFIG.API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action, idToken: liff.getIDToken(), ...data }),
+  });
+  const j = await res.json();
+  if (!j.ok) { const e = new Error(j.error); e.code = j.code; throw e; }
+  return j;
+}
+
+function banner(type, big, small) {
+  const b = $('banner');
+  b.className = 'banner ' + type;
+  b.innerHTML = `<div class="big"></div><div class="small"></div>`;
+  b.querySelector('.big').textContent = big;
+  b.querySelector('.small').textContent = small || '';
+}
+
+function render(data) {
+  $('hello').textContent = 'สวัสดี ' + (data.name || '');
+  $('total').textContent = data.total;
+
+  const goals = TIERS.map(t => t.pts);
+  $('stamps').innerHTML = Array.from({ length: GOAL }, (_, i) => {
+    const n = i + 1;
+    const cls = ['stamp', n <= data.total ? 'on' : '', goals.includes(n) ? 'goal' : ''].join(' ');
+    return `<div class="${cls}">${goals.includes(n) ? n : ''}</div>`;
+  }).join('');
+
+  $('tiers').innerHTML = TIERS.map(t => {
+    const ready = data.total >= t.pts;
+    return `<div class="tier"><div><div class="name">${t.pts} แต้ม · ${t.name}</div>
+      ${t.note ? `<div class="note">${t.note}</div>` : ''}</div>
+      <span class="pill ${ready ? 'ready' : ''}">${ready ? 'ถึงเกณฑ์แล้ว' : `อีก ${t.pts - data.total} แต้ม`}</span></div>`;
+  }).join('');
+
+  const fmt = ts => new Date(ts).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
+  $('hist').innerHTML = data.history.length
+    ? data.history.map(h => `<li><div>${h.branchName}<div class="when">${fmt(h.at)}</div></div>
+        <span class="plus">${h.type === 'earn' ? '+' : '−'}${h.points}</span></li>`).join('')
+    : '<li class="empty">ยังไม่มีประวัติ</li>';
+}
+
+async function claim(code) {
+  try {
+    const r = await api('claimToken', { token: code });
+    banner('ok', `+${r.points} แต้ม`, `สาขา ${r.branchName} · รวม ${r.total} แต้ม`);
+  } catch (e) {
+    if (e.code === 'AUTH') { location.reload(); return; }
+    banner('err', 'รับแต้มไม่สำเร็จ', e.message);
+  }
+}
+
+async function refresh() { render(await api('myPoints')); }
+
+async function main() {
+  try {
+    await liff.init({ liffId: CONFIG.LIFF_ID });
+    if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href }); return; }
+
+    const t = new URLSearchParams(location.search).get('t');
+    if (t) {
+      await claim(t);
+      history.replaceState(null, '', location.pathname); // กันรีเฟรชแล้วเคลมซ้ำ
+    }
+    await refresh();
+    $('vLoading').classList.add('hidden');
+    $('vMain').classList.remove('hidden');
+  } catch (e) {
+    $('vLoading').textContent = 'เกิดข้อผิดพลาด: ' + (e.message || e);
+  }
+}
+
+$('btnClaim').onclick = async () => {
+  const code = $('code').value.replace(/\s/g, '');
+  if (!code) return;
+  const btn = $('btnClaim'); btn.disabled = true;
+  await claim(code);
+  $('code').value = '';
+  try { await refresh(); } catch (e) {}
+  btn.disabled = false;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+
+main();
+</script>
+</body>
+</html>
