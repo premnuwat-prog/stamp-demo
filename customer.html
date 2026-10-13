@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Stamp Demo — แต้มของฉัน</title>
+<title>Stamp — แต้มของฉัน</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -18,6 +18,10 @@
   .card { background: var(--card); border-radius: 16px; padding: 20px; box-shadow: 0 1px 2px rgba(0,0,0,.05); margin-bottom: 14px; }
   .loading { text-align: center; padding: 60px 0; color: var(--muted); }
   .hidden { display: none !important; }
+  .center { text-align: center; }
+  h2 { margin: 0 0 6px; font-size: 20px; }
+  h3 { margin: 0 0 12px; font-size: 16px; }
+  p.sub { margin: 0 0 16px; color: var(--muted); font-size: 14px; line-height: 1.6; }
 
   .banner { border-radius: 16px; padding: 18px 20px; margin-bottom: 14px; }
   .banner.ok { background: var(--ok-bg); color: var(--ok); }
@@ -35,13 +39,12 @@
   .stamp.goal { border-color: var(--accent); color: var(--accent); }
   .stamp.on.goal { color: #fff; }
 
-  h3 { margin: 0 0 12px; font-size: 16px; }
-  .tier { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-top: 1px solid var(--line); }
-  .tier:first-of-type { border-top: 0; }
-  .tier .name { font-weight: 500; }
-  .tier .note { font-size: 12px; color: var(--muted); }
-  .pill { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; background: var(--bg); color: var(--muted); white-space: nowrap; }
-  .pill.ready { background: var(--accent-soft); color: var(--accent); }
+  .rw { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+  .rw:first-of-type { border-top: 0; }
+  .rw .name { font-weight: 500; }
+  .rw .note { font-size: 12px; color: var(--muted); }
+  .rw button, .rw .pill { flex: none; }
+  .pill { font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 999px; background: var(--bg); color: var(--muted); white-space: nowrap; }
 
   .row { display: flex; gap: 8px; }
   input { flex: 1; min-width: 0; font: inherit; font-size: 17px; padding: 12px 14px; border: 1.5px solid var(--line);
@@ -49,6 +52,9 @@
   input:focus { border-color: var(--accent); }
   button { font: inherit; font-size: 16px; font-weight: 600; padding: 12px 18px; border: 0; border-radius: 12px;
            background: var(--accent); color: #fff; cursor: pointer; }
+  button.sm { font-size: 14px; padding: 8px 16px; }
+  button.block { width: 100%; }
+  button.ghost { background: transparent; color: var(--accent); border: 1.5px solid var(--line); }
   button:disabled { opacity: .5; }
 
   .hist { list-style: none; margin: 0; padding: 0; }
@@ -56,13 +62,60 @@
   .hist li:first-child { border-top: 0; }
   .hist .when { color: var(--muted); font-size: 12px; }
   .hist .plus { color: var(--ok); font-weight: 600; }
+  .hist .minus { color: var(--err); font-weight: 600; }
   .empty { color: var(--muted); font-size: 14px; }
+
+  .policy { background: var(--bg); border-radius: 12px; padding: 14px 16px; font-size: 14px; line-height: 1.7; margin-bottom: 16px; }
+  .policy ul { margin: 6px 0 0; padding-left: 18px; }
+
+  #cQr { display: inline-block; padding: 14px; background: #fff; border: 1px solid var(--line); border-radius: 16px; margin: 10px 0 8px; }
+  #cQr img, #cQr canvas { display: block; }
+  .code { font-family: ui-monospace, Menlo, monospace; font-size: 22px; letter-spacing: .14em; font-weight: 600; }
+  .timer { color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; margin-top: 4px; }
+  .status { margin-top: 14px; padding: 12px; border-radius: 12px; font-weight: 600; background: var(--bg); color: var(--muted); }
+  .status.err { background: var(--err-bg); color: var(--err); }
+  .done-ico { width: 64px; height: 64px; border-radius: 50%; background: var(--ok-bg); color: var(--ok);
+              display: grid; place-items: center; font-size: 32px; margin: 4px auto 12px; }
+
+  .sheet-bg { position: fixed; inset: 0; background: rgba(17,17,22,.45); display: flex; align-items: flex-end; justify-content: center; }
+  .sheet { background: #fff; width: 100%; max-width: 440px; border-radius: 20px 20px 0 0; padding: 22px 20px 28px; }
+  .sheet .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div id="vLoading" class="loading">กำลังโหลด…</div>
 
+  <!-- PDPA -->
+  <div id="vConsent" class="card hidden">
+    <h2>ก่อนเริ่มสะสมแต้ม</h2>
+    <p class="sub">กรุณาอ่านและยอมรับการเก็บข้อมูลส่วนบุคคล</p>
+    <div class="policy">
+      แคมเปญนี้จะเก็บข้อมูลต่อไปนี้ เพื่อใช้สะสมแต้มและแลกของรางวัลในแคมเปญเท่านั้น
+      <ul>
+        <li>ชื่อที่แสดงและ LINE User ID</li>
+        <li>เลขใบเสร็จ ยอดซื้อ และสาขาที่ร่วมรายการ</li>
+        <li>ประวัติการสะสมและแลกของรางวัล</li>
+      </ul>
+    </div>
+    <button class="block" id="btnConsent">ยอมรับและเริ่มสะสมแต้ม</button>
+  </div>
+
+  <!-- รับแต้มจาก QR ประจำสาขา -->
+  <div id="vStatic" class="card hidden">
+    <p class="sub" style="margin-bottom:2px" id="stBranch"></p>
+    <div class="total"><b id="stPoints"></b><span>แต้ม</span></div>
+    <div id="stMsg" class="banner err hidden" style="padding:12px 14px;font-size:14px"></div>
+    <div id="stReceiptBox">
+      <h3 style="margin-bottom:8px">เลขที่ใบเสร็จ</h3>
+      <p class="sub" style="margin-bottom:10px">กรอกเลขใบเสร็จที่ยื่นให้พนักงาน</p>
+      <input id="stReceipt" autocomplete="off" style="width:100%;margin-bottom:14px">
+    </div>
+    <button class="block" id="btnStatic">รับแต้ม</button>
+    <button class="ghost block" id="btnStaticSkip" style="margin-top:10px">ดูแต้มของฉัน</button>
+  </div>
+
+  <!-- หน้าหลัก -->
   <div id="vMain" class="hidden">
     <div id="banner" class="banner hidden"></div>
 
@@ -73,8 +126,8 @@
     </div>
 
     <div class="card">
-      <h3>ของรางวัล</h3>
-      <div id="tiers"></div>
+      <h3>แลกของรางวัล</h3>
+      <div id="rewards"></div>
     </div>
 
     <div class="card">
@@ -90,22 +143,55 @@
       <ul class="hist" id="hist"></ul>
     </div>
   </div>
+
+  <!-- คูปองแลกรางวัล -->
+  <div id="vCoupon" class="card center hidden">
+    <p class="sub" style="margin-bottom:2px">คูปองแลกรางวัล</p>
+    <h2 id="cReward"></h2>
+    <div id="cQr"></div>
+    <div class="code" id="cCode"></div>
+    <div class="timer">หมดอายุใน <span id="cTimer">--:--</span></div>
+    <div class="status" id="cStatus">ยื่นหน้าจอนี้ให้พนักงานสแกน</div>
+    <button class="ghost block" id="btnBack" style="margin-top:12px">กลับ</button>
+  </div>
+
+  <!-- สำเร็จ -->
+  <div id="vDone" class="card center hidden">
+    <div class="done-ico">✓</div>
+    <h2 id="dTitle"></h2>
+    <p class="sub" id="dText"></p>
+    <div class="code" id="dCode" style="margin-bottom:16px"></div>
+    <button class="block" id="btnForm">กรอกฟอร์มลงทะเบียน</button>
+    <button class="ghost block" id="btnHome" style="margin-top:10px">กลับหน้าแต้มของฉัน</button>
+  </div>
+</div>
+
+<!-- กล่องยืนยัน -->
+<div id="sheet" class="sheet-bg hidden">
+  <div class="sheet">
+    <h2 id="sTitle"></h2>
+    <p class="sub" id="sText"></p>
+    <div class="btns">
+      <button class="ghost" id="sNo">ยกเลิก</button>
+      <button id="sYes">ยืนยัน</button>
+    </div>
+  </div>
 </div>
 
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 const CONFIG = {
   LIFF_ID: '2011980277-oZ3HluAy',     // LIFF ID ของหน้า Customer
   API_URL: 'https://script.google.com/macros/s/AKfycbyMks7dA8tzqFwd-_z6_oo5QUvoqmqfwAaydYW5Z83uEYdtibXg0XKvv6hHvkK5qqKa/exec',
+  POLL_MS: 3000,
 };
 const GOAL = 15;
-const TIERS = [
-  { pts: 5,  name: 'ส่วนลดบาร์น้ำ 5 บาท' },
-  { pts: 10, name: 'กระเป๋า มูลค่า 99 บาท', note: 'แลกได้ตั้งแต่ 30 ต.ค. 69' },
-  { pts: 15, name: 'บัตรชมคอนเสิร์ต 10 ม.ค. 70', note: 'ลงทะเบียน 300 ท่านแรก' },
-];
 
 const $ = id => document.getElementById(id);
+const views = ['vLoading', 'vConsent', 'vStatic', 'vMain', 'vCoupon', 'vDone'];
+const show = v => { views.forEach(x => $(x).classList.toggle('hidden', x !== v)); window.scrollTo(0, 0); };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 async function api(action, data = {}) {
   const res = await fetch(CONFIG.API_URL, {
@@ -121,35 +207,56 @@ async function api(action, data = {}) {
 function banner(type, big, small) {
   const b = $('banner');
   b.className = 'banner ' + type;
-  b.innerHTML = `<div class="big"></div><div class="small"></div>`;
+  b.innerHTML = '<div class="big"></div><div class="small"></div>';
   b.querySelector('.big').textContent = big;
   b.querySelector('.small').textContent = small || '';
 }
 
-function render(data) {
-  $('hello').textContent = 'สวัสดี ' + (data.name || '');
-  $('total').textContent = data.total;
+function confirmSheet(title, text) {
+  return new Promise(resolve => {
+    $('sTitle').textContent = title; $('sText').textContent = text;
+    $('sheet').classList.remove('hidden');
+    const done = v => { $('sheet').classList.add('hidden'); resolve(v); };
+    $('sYes').onclick = () => done(true);
+    $('sNo').onclick = () => done(false);
+  });
+}
 
-  const goals = TIERS.map(t => t.pts);
+let data = null;
+
+function render(d) {
+  data = d;
+  $('hello').textContent = 'สวัสดี ' + (d.name || '');
+  $('total').textContent = d.total;
+
+  const goals = d.rewards.map(r => r.points);
   $('stamps').innerHTML = Array.from({ length: GOAL }, (_, i) => {
     const n = i + 1;
-    const cls = ['stamp', n <= data.total ? 'on' : '', goals.includes(n) ? 'goal' : ''].join(' ');
+    const cls = ['stamp', n <= d.total ? 'on' : '', goals.includes(n) ? 'goal' : ''].join(' ');
     return `<div class="${cls}">${goals.includes(n) ? n : ''}</div>`;
   }).join('');
 
-  $('tiers').innerHTML = TIERS.map(t => {
-    const ready = data.total >= t.pts;
-    return `<div class="tier"><div><div class="name">${t.pts} แต้ม · ${t.name}</div>
-      ${t.note ? `<div class="note">${t.note}</div>` : ''}</div>
-      <span class="pill ${ready ? 'ready' : ''}">${ready ? 'ถึงเกณฑ์แล้ว' : `อีก ${t.pts - data.total} แต้ม`}</span></div>`;
+  $('rewards').innerHTML = d.rewards.map(r => {
+    let right;
+    if (r.state === 'ok') right = `<button class="sm" data-rw="${esc(r.id)}">${r.type === 'form' ? 'ลงทะเบียน' : 'แลก'}</button>`;
+    else if (r.state === 'LIMIT' && r.formUrl) right = `<button class="sm ghost" data-form="${esc(r.formUrl)}">เปิดฟอร์ม</button>`;
+    else right = `<span class="pill">${esc(r.note)}</span>`;
+    const sub = r.redeemedCount ? `แลกแล้ว ${r.redeemedCount} ครั้ง` : (r.type === 'form' ? 'จำนวนจำกัด' : '');
+    return `<div class="rw"><div><div class="name">${r.points} แต้ม · ${esc(r.name)}</div>
+      ${sub ? `<div class="note">${sub}</div>` : ''}</div>${right}</div>`;
   }).join('');
+  document.querySelectorAll('[data-rw]').forEach(b => b.onclick = () => redeem(b.dataset.rw));
+  document.querySelectorAll('[data-form]').forEach(b => b.onclick = () => openForm(b.dataset.form));
 
   const fmt = ts => new Date(ts).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
-  $('hist').innerHTML = data.history.length
-    ? data.history.map(h => `<li><div>${h.branchName}<div class="when">${fmt(h.at)}</div></div>
-        <span class="plus">${h.type === 'earn' ? '+' : '−'}${h.points}</span></li>`).join('')
+  $('hist').innerHTML = d.history.length
+    ? d.history.map(h => `<li><div>${h.type === 'redeem' ? 'แลกรางวัล' : 'สะสมแต้ม'}${h.branchName ? ' · ' + esc(h.branchName) : ''}
+        <div class="when">${fmt(h.at)}</div></div>
+        <span class="${h.points >= 0 ? 'plus' : 'minus'}">${h.points >= 0 ? '+' : '−'}${Math.abs(h.points)}</span></li>`).join('')
     : '<li class="empty">ยังไม่มีประวัติ</li>';
 }
+
+async function refresh() { render(await api('myPoints')); }
 
 async function claim(code) {
   try {
@@ -161,25 +268,132 @@ async function claim(code) {
   }
 }
 
-async function refresh() { render(await api('myPoints')); }
+/* ---------- แลกรางวัล ---------- */
+let pollTimer, tickTimer;
+const stopTimers = () => { clearInterval(pollTimer); clearInterval(tickTimer); };
+
+async function redeem(id) {
+  const rw = data.rewards.find(r => r.id === id);
+  if (rw.type === 'form') {
+    const ok = await confirmSheet('ใช้ ' + rw.points + ' แต้ม', `ลงทะเบียนรับ “${rw.name}” แต้มจะถูกหักทันที`);
+    if (!ok) return;
+  }
+  try {
+    const r = await api('requestRedeem', { rewardId: id });
+    if (r.type === 'form') return showDone('ลงทะเบียนสิทธิ์สำเร็จ',
+      `เหลือ ${r.balance} แต้ม · กรอกฟอร์มให้ครบ แล้วแสดงรหัสนี้ที่หน้างานเพื่อรับบัตร`, r.code, r.formUrl);
+    showCoupon(r);
+  } catch (e) {
+    banner('err', 'แลกไม่สำเร็จ', e.message);
+    await refresh();
+  }
+}
+
+function showCoupon(r) {
+  $('cReward').textContent = r.rewardName;
+  $('cQr').innerHTML = '';
+  new QRCode($('cQr'), { text: 'RDM:' + r.code, width: 220, height: 220, correctLevel: QRCode.CorrectLevel.M });
+  $('cCode').textContent = r.code;
+  $('cStatus').textContent = 'ยื่นหน้าจอนี้ให้พนักงานสแกน'; $('cStatus').className = 'status';
+  show('vCoupon');
+
+  const tick = () => {
+    const left = Math.max(0, r.expiresAt - Date.now());
+    $('cTimer').textContent = `${String(Math.floor(left / 60000)).padStart(2, '0')}:${String(Math.floor(left / 1000) % 60).padStart(2, '0')}`;
+  };
+  tick(); stopTimers(); tickTimer = setInterval(tick, 1000);
+  pollTimer = setInterval(async () => {
+    try {
+      const s = await api('redeemStatus', { code: r.code });
+      if (s.status === 'confirmed') { stopTimers(); showDone('แลกสำเร็จ', `รับ “${r.rewardName}” · เหลือ ${s.balance} แต้ม`); }
+      if (s.status === 'expired') { stopTimers(); $('cStatus').textContent = 'คูปองหมดอายุ กดกลับแล้วแลกใหม่ได้'; $('cStatus').className = 'status err'; }
+    } catch (e) {}
+  }, CONFIG.POLL_MS);
+}
+
+let formUrl = '';
+function showDone(title, text, code, url) {
+  $('dTitle').textContent = title; $('dText').textContent = text;
+  $('dCode').textContent = code || ''; $('dCode').classList.toggle('hidden', !code);
+  formUrl = url || ''; $('btnForm').classList.toggle('hidden', !formUrl);
+  show('vDone');
+}
+function openForm(url) {
+  if (liff.isInClient && liff.isInClient()) liff.openWindow({ url, external: false });
+  else window.open(url, '_blank');
+}
+
+$('btnForm').onclick = () => openForm(formUrl);
+$('btnBack').onclick = async () => { stopTimers(); await refresh(); show('vMain'); };
+$('btnHome').onclick = async () => { $('banner').classList.add('hidden'); await refresh(); show('vMain'); };
+
+/* ---------- เริ่มต้น ---------- */
+let staticQ = null;
+async function goHome() { await refresh(); show('vMain'); }
+
+async function startStatic(q) {
+  try {
+    const info = await api('staticInfo', q);
+    staticQ = q;
+    $('stBranch').textContent = 'สาขา ' + info.branchName;
+    $('stPoints').textContent = '+' + info.points;
+    $('stReceiptBox').classList.toggle('hidden', !info.requireReceipt);
+    $('stMsg').classList.add('hidden');
+    show('vStatic');
+  } catch (e) {
+    banner('err', 'QR ไม่ถูกต้อง', e.message);
+    await goHome();
+  }
+}
+
+$('btnStatic').onclick = async () => {
+  const btn = $('btnStatic'); btn.disabled = true;
+  try {
+    const r = await api('claimStatic', { ...staticQ, receiptNo: $('stReceipt').value });
+    banner('ok', `+${r.points} แต้ม`, `สาขา ${r.branchName} · รวม ${r.total} แต้ม`);
+    $('stReceipt').value = '';
+    await goHome();
+  } catch (e) {
+    if (e.code === 'AUTH') { location.reload(); return; }
+    $('stMsg').textContent = e.message; $('stMsg').classList.remove('hidden');
+  }
+  btn.disabled = false;
+};
+$('btnStaticSkip').onclick = () => { $('banner').classList.add('hidden'); goHome(); };
+
+async function afterConsent() {
+  const qs = new URLSearchParams(location.search);
+  if (qs.get('b') && qs.get('p') && qs.get('s')) {
+    const q = { b: qs.get('b'), p: qs.get('p'), s: qs.get('s') };
+    history.replaceState(null, '', location.pathname);
+    return startStatic(q);
+  }
+  const t = qs.get('t');
+  if (t) {
+    await claim(t);
+    history.replaceState(null, '', location.pathname); // กันรีเฟรชแล้วเคลมซ้ำ
+  }
+  await refresh();
+  show('vMain');
+}
 
 async function main() {
   try {
     await liff.init({ liffId: CONFIG.LIFF_ID });
     if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href }); return; }
-
-    const t = new URLSearchParams(location.search).get('t');
-    if (t) {
-      await claim(t);
-      history.replaceState(null, '', location.pathname); // กันรีเฟรชแล้วเคลมซ้ำ
-    }
-    await refresh();
-    $('vLoading').classList.add('hidden');
-    $('vMain').classList.remove('hidden');
+    const d = await api('myPoints');
+    if (!d.consented) return show('vConsent');
+    await afterConsent();
   } catch (e) {
     $('vLoading').textContent = 'เกิดข้อผิดพลาด: ' + (e.message || e);
   }
 }
+
+$('btnConsent').onclick = async () => {
+  const btn = $('btnConsent'); btn.disabled = true;
+  try { await api('acceptConsent'); await afterConsent(); }
+  catch (e) { btn.disabled = false; $('btnConsent').textContent = 'ลองใหม่อีกครั้ง · ' + e.message; }
+};
 
 $('btnClaim').onclick = async () => {
   const code = $('code').value.replace(/\s/g, '');
