@@ -77,6 +77,12 @@
   .done-ico { width: 64px; height: 64px; border-radius: 50%; background: var(--ok-bg); color: var(--ok);
               display: grid; place-items: center; font-size: 32px; margin: 4px auto 12px; }
 
+  .kv { display: flex; justify-content: space-between; padding: 10px 0; border-top: 1px solid var(--line); font-size: 15px; text-align: left; }
+  .kv span { color: var(--muted); }
+  .mono { font-family: ui-monospace, Menlo, monospace; letter-spacing: .08em; }
+  .clock { font-size: 40px; font-weight: 700; font-variant-numeric: tabular-nums; margin: 14px 0 0; color: var(--ok); }
+  .pulse { display: inline-grid; place-items: center; border-radius: 50%; animation: pulse 1.4s ease-out infinite; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(5,150,105,.45); } 100% { box-shadow: 0 0 0 22px rgba(5,150,105,0); } }
   .sheet-bg { position: fixed; inset: 0; background: rgba(17,17,22,.45); display: flex; align-items: flex-end; justify-content: center; }
   .sheet { background: #fff; width: 100%; max-width: 440px; border-radius: 20px 20px 0 0; padding: 22px 20px 28px; }
   .sheet .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
@@ -130,13 +136,6 @@
       <div id="rewards"></div>
     </div>
 
-    <div class="card">
-      <h3>มีรหัสจากพนักงาน?</h3>
-      <div class="row">
-        <input id="code" maxlength="9" placeholder="ABCD EFGH" autocomplete="off">
-        <button id="btnClaim">รับแต้ม</button>
-      </div>
-    </div>
 
     <div class="card">
       <h3>ประวัติล่าสุด</h3>
@@ -153,6 +152,19 @@
     <div class="timer">หมดอายุใน <span id="cTimer">--:--</span></div>
     <div class="status" id="cStatus">ยื่นหน้าจอนี้ให้พนักงานสแกน</div>
     <button class="ghost block" id="btnBack" style="margin-top:12px">กลับ</button>
+  </div>
+
+  <!-- หลักฐานการใช้สิทธิ์ (โชว์พนักงาน) -->
+  <div id="vProof" class="card center hidden">
+    <div class="pulse"><div class="done-ico" style="margin:0">✓</div></div>
+    <p class="sub" style="margin:12px 0 2px">ใช้สิทธิ์แล้ว · โชว์หน้านี้ให้พนักงาน</p>
+    <h2 id="pReward"></h2>
+    <div class="kv"><span>ชื่อ</span><b id="pName"></b></div>
+    <div class="kv"><span>ใช้สิทธิ์เมื่อ</span><b id="pUsed"></b></div>
+    <div class="kv"><span>รหัส</span><b id="pCode" class="mono"></b></div>
+    <div class="clock" id="pClock">--:--:--</div>
+    <p class="sub" style="margin:0 0 14px">เวลาขณะนี้ (เดินต่อเนื่อง · ภาพหน้าจอจะไม่เดิน)</p>
+    <button class="ghost block" id="btnProofBack">กลับหน้าแต้มของฉัน</button>
   </div>
 
   <!-- สำเร็จ -->
@@ -189,7 +201,7 @@ const CONFIG = {
 const GOAL = 15;
 
 const $ = id => document.getElementById(id);
-const views = ['vLoading', 'vConsent', 'vStatic', 'vMain', 'vCoupon', 'vDone'];
+const views = ['vLoading', 'vConsent', 'vStatic', 'vMain', 'vCoupon', 'vProof', 'vDone'];
 const show = v => { views.forEach(x => $(x).classList.toggle('hidden', x !== v)); window.scrollTo(0, 0); };
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
@@ -238,21 +250,27 @@ function render(d) {
 
   $('rewards').innerHTML = d.rewards.map(r => {
     let right;
-    if (r.state === 'ok') right = `<button class="sm" data-rw="${esc(r.id)}">${r.type === 'form' ? 'ลงทะเบียน' : 'แลก'}</button>`;
+    if (r.state === 'ok') right = `<button class="sm" data-rw="${esc(r.id)}">${r.type === 'form' ? 'ลงทะเบียน' : 'ใช้สิทธิ์'}</button>`;
     else if (r.state === 'LIMIT' && r.formUrl) right = `<button class="sm ghost" data-form="${esc(r.formUrl)}">เปิดฟอร์ม</button>`;
+    else if (r.state === 'LIMIT' && r.proofOpen) right = `<button class="sm ghost" data-proof="${esc(r.id)}">ดูหลักฐาน</button>`;
     else right = `<span class="pill">${esc(r.note)}</span>`;
-    const sub = r.redeemedCount ? `แลกแล้ว ${r.redeemedCount} ครั้ง` : (r.type === 'form' ? 'จำนวนจำกัด' : '');
+    const sub = r.usedAt ? 'ใช้สิทธิ์แล้ว ' + new Date(r.usedAt).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })
+      : (r.type === 'form' ? 'จำนวนจำกัด · ใช้ได้ 1 ครั้ง' : 'ใช้ได้ 1 ครั้ง');
     return `<div class="rw"><div><div class="name">${r.points} แต้ม · ${esc(r.name)}</div>
       ${sub ? `<div class="note">${sub}</div>` : ''}</div>${right}</div>`;
   }).join('');
   document.querySelectorAll('[data-rw]').forEach(b => b.onclick = () => redeem(b.dataset.rw));
   document.querySelectorAll('[data-form]').forEach(b => b.onclick = () => openForm(b.dataset.form));
+  document.querySelectorAll('[data-proof]').forEach(b => b.onclick = () => {
+    const r = d.rewards.find(x => x.id === b.dataset.proof);
+    showProof({ rewardName: r.name, usedAt: r.usedAt, code: r.usedCode, name: d.name });
+  });
 
   const fmt = ts => new Date(ts).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
   $('hist').innerHTML = d.history.length
-    ? d.history.map(h => `<li><div>${h.type === 'redeem' ? 'แลกรางวัล' : 'สะสมแต้ม'}${h.branchName ? ' · ' + esc(h.branchName) : ''}
+    ? d.history.map(h => `<li><div>${h.type === 'redeem' ? 'ใช้สิทธิ์แลกรางวัล' : 'สะสมแต้ม'}${h.branchName ? ' · ' + esc(h.branchName) : ''}
         <div class="when">${fmt(h.at)}</div></div>
-        <span class="${h.points >= 0 ? 'plus' : 'minus'}">${h.points >= 0 ? '+' : '−'}${Math.abs(h.points)}</span></li>`).join('')
+        <span class="plus">${h.type === 'redeem' ? '✓' : '+' + h.points}</span></li>`).join('')
     : '<li class="empty">ยังไม่มีประวัติ</li>';
 }
 
@@ -274,20 +292,32 @@ const stopTimers = () => { clearInterval(pollTimer); clearInterval(tickTimer); }
 
 async function redeem(id) {
   const rw = data.rewards.find(r => r.id === id);
-  if (rw.type === 'form') {
-    const ok = await confirmSheet('ใช้ ' + rw.points + ' แต้ม', `ลงทะเบียนรับ “${rw.name}” แต้มจะถูกหักทันที`);
-    if (!ok) return;
-  }
+  const ok = rw.type === 'form'
+    ? await confirmSheet('ลงทะเบียนบัตรคอนเสิร์ต', `สิทธิ์นี้ใช้ได้ 1 ครั้ง แต้มของคุณไม่ลด`)
+    : await confirmSheet('ใช้สิทธิ์ต่อหน้าพนักงาน', `กด “ยืนยัน” เมื่ออยู่ที่จุดแลกรางวัลเท่านั้น “${rw.name}” ใช้ได้ 1 ครั้ง แต้มของคุณไม่ลด`);
+  if (!ok) return;
   try {
     const r = await api('requestRedeem', { rewardId: id });
     if (r.type === 'form') return showDone('ลงทะเบียนสิทธิ์สำเร็จ',
-      `เหลือ ${r.balance} แต้ม · กรอกฟอร์มให้ครบ แล้วแสดงรหัสนี้ที่หน้างานเพื่อรับบัตร`, r.code, r.formUrl);
-    showCoupon(r);
+      'กรอกฟอร์มให้ครบ แล้วแสดงรหัสนี้ที่หน้างานเพื่อรับบัตร', r.code, r.formUrl);
+    showProof(r);
   } catch (e) {
-    banner('err', 'แลกไม่สำเร็จ', e.message);
+    banner('err', 'ใช้สิทธิ์ไม่สำเร็จ', e.message);
     await refresh();
   }
 }
+
+let clockTimer;
+function showProof(r) {
+  $('pReward').textContent = r.rewardName;
+  $('pName').textContent = r.name || '';
+  $('pUsed').textContent = new Date(r.usedAt).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'medium' });
+  $('pCode').textContent = r.code;
+  const tick = () => { $('pClock').textContent = new Date().toLocaleTimeString('th-TH', { hour12: false }); };
+  tick(); clearInterval(clockTimer); clockTimer = setInterval(tick, 1000);
+  show('vProof');
+}
+$('btnProofBack').onclick = async () => { clearInterval(clockTimer); $('banner').classList.add('hidden'); await goHome(); };
 
 function showCoupon(r) {
   $('cReward').textContent = r.rewardName;
@@ -395,7 +425,7 @@ $('btnConsent').onclick = async () => {
   catch (e) { btn.disabled = false; $('btnConsent').textContent = 'ลองใหม่อีกครั้ง · ' + e.message; }
 };
 
-$('btnClaim').onclick = async () => {
+if ($('btnClaim')) $('btnClaim').onclick = async () => {
   const code = $('code').value.replace(/\s/g, '');
   if (!code) return;
   const btn = $('btnClaim'); btn.disabled = true;
