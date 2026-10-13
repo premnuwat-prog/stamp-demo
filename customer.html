@@ -4,8 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Stamp — แต้มของฉัน</title>
+<link rel="preconnect" href="https://script.google.com">
+<link rel="preconnect" href="https://script.googleusercontent.com" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg: #f4f5f7; --card: #fff; --ink: #1a1d24; --muted: #6b7280; --line: #e5e7eb;
@@ -191,7 +194,6 @@
 </div>
 
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 const CONFIG = {
   LIFF_ID: '2011980277-oZ3HluAy',     // LIFF ID ของหน้า Customer
@@ -236,8 +238,10 @@ function confirmSheet(title, text) {
 
 let data = null;
 
+const CACHE_KEY = 'stamp_points_v1';
 function render(d) {
   data = d;
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify(d)); } catch (e) {}
   $('hello').textContent = 'สวัสดี ' + (d.name || '');
   $('total').textContent = d.total;
 
@@ -276,6 +280,7 @@ function render(d) {
 }
 
 async function refresh() { render(await api('myPoints')); }
+const useData = r => { if (r && r.data) render(r.data); };
 
 async function claim(code) {
   try {
@@ -299,6 +304,7 @@ async function redeem(id) {
   if (!ok) return;
   try {
     const r = await api('requestRedeem', { rewardId: id });
+    useData(r);
     if (r.type === 'form') return showDone('ลงทะเบียนสิทธิ์สำเร็จ',
       'กรอกฟอร์มให้ครบ แล้วแสดงรหัสนี้ที่หน้างานเพื่อรับบัตร', r.code, r.formUrl);
     showProof(r);
@@ -318,29 +324,7 @@ function showProof(r) {
   tick(); clearInterval(clockTimer); clockTimer = setInterval(tick, 1000);
   show('vProof');
 }
-$('btnProofBack').onclick = async () => { clearInterval(clockTimer); $('banner').classList.add('hidden'); await goHome(); };
-
-function showCoupon(r) {
-  $('cReward').textContent = r.rewardName;
-  $('cQr').innerHTML = '';
-  new QRCode($('cQr'), { text: 'RDM:' + r.code, width: 220, height: 220, correctLevel: QRCode.CorrectLevel.M });
-  $('cCode').textContent = r.code;
-  $('cStatus').textContent = 'ยื่นหน้าจอนี้ให้พนักงานสแกน'; $('cStatus').className = 'status';
-  show('vCoupon');
-
-  const tick = () => {
-    const left = Math.max(0, r.expiresAt - Date.now());
-    $('cTimer').textContent = `${String(Math.floor(left / 60000)).padStart(2, '0')}:${String(Math.floor(left / 1000) % 60).padStart(2, '0')}`;
-  };
-  tick(); stopTimers(); tickTimer = setInterval(tick, 1000);
-  pollTimer = setInterval(async () => {
-    try {
-      const s = await api('redeemStatus', { code: r.code });
-      if (s.status === 'confirmed') { stopTimers(); showDone('แลกสำเร็จ', `รับ “${r.rewardName}” · เหลือ ${s.balance} แต้ม`); }
-      if (s.status === 'expired') { stopTimers(); $('cStatus').textContent = 'คูปองหมดอายุ กดกลับแล้วแลกใหม่ได้'; $('cStatus').className = 'status err'; }
-    } catch (e) {}
-  }, CONFIG.POLL_MS);
-}
+$('btnProofBack').onclick = () => { clearInterval(clockTimer); $('banner').classList.add('hidden'); show('vMain'); };
 
 let formUrl = '';
 function showDone(title, text, code, url) {
@@ -355,35 +339,29 @@ function openForm(url) {
 }
 
 $('btnForm').onclick = () => openForm(formUrl);
-$('btnBack').onclick = async () => { stopTimers(); await refresh(); show('vMain'); };
-$('btnHome').onclick = async () => { $('banner').classList.add('hidden'); await refresh(); show('vMain'); };
+$('btnBack').onclick = () => { stopTimers(); show('vMain'); };
+$('btnHome').onclick = () => { $('banner').classList.add('hidden'); show('vMain'); };
 
-/* ---------- เริ่มต้น ---------- */
-let staticQ = null;
-async function goHome() { await refresh(); show('vMain'); }
+/* ---------- เริ่มต้น (เรียก API ให้น้อยที่สุด) ---------- */
+let staticQ = null, initData = null;
+async function goHome() { if (!data) await refresh(); show('vMain'); }
 
-async function startStatic(q) {
-  try {
-    const info = await api('staticInfo', q);
-    staticQ = q;
-    $('stBranch').textContent = 'สาขา ' + info.branchName;
-    $('stPoints').textContent = '+' + info.points;
-    $('stReceiptBox').classList.toggle('hidden', !info.requireReceipt);
-    $('stMsg').classList.add('hidden');
-    show('vStatic');
-  } catch (e) {
-    banner('err', 'QR ไม่ถูกต้อง', e.message);
-    await goHome();
-  }
+function showStatic(info) {
+  $('stBranch').textContent = 'สาขา ' + info.branchName;
+  $('stPoints').textContent = '+' + info.points;
+  $('stReceiptBox').classList.toggle('hidden', !info.requireReceipt);
+  $('stMsg').classList.add('hidden');
+  show('vStatic');
 }
 
 $('btnStatic').onclick = async () => {
   const btn = $('btnStatic'); btn.disabled = true;
   try {
     const r = await api('claimStatic', { ...staticQ, receiptNo: $('stReceipt').value });
+    useData(r);
     banner('ok', `+${r.points} แต้ม`, `สาขา ${r.branchName} · รวม ${r.total} แต้ม`);
     $('stReceipt').value = '';
-    await goHome();
+    show('vMain');
   } catch (e) {
     if (e.code === 'AUTH') { location.reload(); return; }
     $('stMsg').textContent = e.message; $('stMsg').classList.remove('hidden');
@@ -392,37 +370,43 @@ $('btnStatic').onclick = async () => {
 };
 $('btnStaticSkip').onclick = () => { $('banner').classList.add('hidden'); goHome(); };
 
-async function afterConsent() {
-  const qs = new URLSearchParams(location.search);
-  if (qs.get('b') && qs.get('p') && qs.get('s')) {
-    const q = { b: qs.get('b'), p: qs.get('p'), s: qs.get('s') };
-    history.replaceState(null, '', location.pathname);
-    return startStatic(q);
-  }
-  const t = qs.get('t');
-  if (t) {
-    await claim(t);
-    history.replaceState(null, '', location.pathname); // กันรีเฟรชแล้วเคลมซ้ำ
-  }
-  await refresh();
+// หลังยอมรับ PDPA แล้ว: มี QR สาขา → หน้ารับแต้ม, ไม่มี → หน้าแต้มของฉัน
+async function afterConsent(d) {
+  render(d);
+  if (d.static) return showStatic(d.static);
+  if (d.staticError) banner('err', 'QR ไม่ถูกต้อง', d.staticError);
+  const t = new URLSearchParams(location.search).get('t');
+  if (t) { history.replaceState(null, '', location.pathname); await claim(t); await refresh(); }
   show('vMain');
 }
 
 async function main() {
+  const qs = new URLSearchParams(location.search);
+  if (qs.get('b')) {
+    staticQ = { b: qs.get('b'), p: qs.get('p'), s: qs.get('s') };
+    history.replaceState(null, '', location.pathname); // กันรีเฟรชแล้วสแกนซ้ำ
+  }
+  // แสดงข้อมูลล่าสุดที่เคยโหลดไว้ทันที ระหว่างรอข้อมูลใหม่ (เฉพาะกรณีไม่ได้สแกน QR)
+  if (!staticQ) {
+    try { const c = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null'); if (c && c.consented) { render(c); show('vMain'); } } catch (e) {}
+  }
   try {
     await liff.init({ liffId: CONFIG.LIFF_ID });
     if (!liff.isLoggedIn()) { liff.login({ redirectUri: location.href }); return; }
-    const d = await api('myPoints');
-    if (!d.consented) return show('vConsent');
-    await afterConsent();
+    initData = await api('init', staticQ || {});
+    if (!initData.consented) return show('vConsent');
+    await afterConsent(initData);
   } catch (e) {
-    $('vLoading').textContent = 'เกิดข้อผิดพลาด: ' + (e.message || e);
+    if (!data) $('vLoading').textContent = 'เกิดข้อผิดพลาด: ' + (e.message || e);
   }
 }
 
 $('btnConsent').onclick = async () => {
   const btn = $('btnConsent'); btn.disabled = true;
-  try { await api('acceptConsent'); await afterConsent(); }
+  try {
+    const r = await api('acceptConsent');
+    await afterConsent({ ...r.data, static: initData && initData.static, staticError: initData && initData.staticError });
+  }
   catch (e) { btn.disabled = false; $('btnConsent').textContent = 'ลองใหม่อีกครั้ง · ' + e.message; }
 };
 
