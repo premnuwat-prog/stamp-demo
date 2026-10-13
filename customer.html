@@ -55,7 +55,7 @@
   button.sm { font-size: 14px; padding: 8px 16px; }
   button.block { width: 100%; }
   button.ghost { background: transparent; color: var(--accent); border: 1.5px solid var(--line); }
-  button:disabled { opacity: .5; }
+  button:disabled { opacity: 1; background: #e5e7eb; color: #9ca3af; cursor: not-allowed; }
 
   .hist { list-style: none; margin: 0; padding: 0; }
   .hist li { display: flex; justify-content: space-between; padding: 10px 0; border-top: 1px solid var(--line); font-size: 14px; }
@@ -250,11 +250,12 @@ function render(d) {
 
   $('rewards').innerHTML = d.rewards.map(r => {
     let right;
-    if (r.state === 'ok') right = `<button class="sm" data-rw="${esc(r.id)}">${r.type === 'form' ? 'ลงทะเบียน' : 'ใช้สิทธิ์'}</button>`;
+    if (r.state === 'ok') right = `<button class="sm" data-rw="${esc(r.id)}">${r.type === 'form' ? 'ลงทะเบียน' : 'แลก'}</button>`;
     else if (r.state === 'LIMIT' && r.formUrl) right = `<button class="sm ghost" data-form="${esc(r.formUrl)}">เปิดฟอร์ม</button>`;
     else if (r.state === 'LIMIT' && r.proofOpen) right = `<button class="sm ghost" data-proof="${esc(r.id)}">ดูหลักฐาน</button>`;
-    else right = `<span class="pill">${esc(r.note)}</span>`;
+    else right = `<button class="sm" disabled>${r.state === 'LIMIT' ? 'แลกแล้ว' : 'แลก'}</button>`;
     const sub = r.usedAt ? 'ใช้สิทธิ์แล้ว ' + new Date(r.usedAt).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' })
+      : r.state !== 'ok' && r.note ? r.note
       : (r.type === 'form' ? 'จำนวนจำกัด · ใช้ได้ 1 ครั้ง' : 'ใช้ได้ 1 ครั้ง');
     return `<div class="rw"><div><div class="name">${r.points} แต้ม · ${esc(r.name)}</div>
       ${sub ? `<div class="note">${sub}</div>` : ''}</div>${right}</div>`;
