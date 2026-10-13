@@ -115,11 +115,6 @@
     <p class="sub" style="margin-bottom:2px" id="stBranch"></p>
     <div class="total"><b id="stPoints"></b><span>แต้ม</span></div>
     <div id="stMsg" class="banner err hidden" style="padding:12px 14px;font-size:14px"></div>
-    <div id="stReceiptBox">
-      <h3 style="margin-bottom:8px">เลขที่ใบเสร็จ</h3>
-      <p class="sub" style="margin-bottom:10px">กรอกเลขใบเสร็จที่ยื่นให้พนักงาน</p>
-      <input id="stReceipt" autocomplete="off" style="width:100%;margin-bottom:14px">
-    </div>
     <button class="block" id="btnStatic">รับแต้ม</button>
     <button class="ghost block" id="btnStaticSkip" style="margin-top:10px">ดูแต้มของฉัน</button>
   </div>
@@ -349,7 +344,6 @@ async function goHome() { if (!data) await refresh(); show('vMain'); }
 function showStatic(info) {
   $('stBranch').textContent = 'สาขา ' + info.branchName;
   $('stPoints').textContent = '+' + info.points;
-  $('stReceiptBox').classList.toggle('hidden', !info.requireReceipt);
   $('stMsg').classList.add('hidden');
   show('vStatic');
 }
@@ -357,10 +351,9 @@ function showStatic(info) {
 $('btnStatic').onclick = async () => {
   const btn = $('btnStatic'); btn.disabled = true;
   try {
-    const r = await api('claimStatic', { ...staticQ, receiptNo: $('stReceipt').value });
+    const r = await api('claimStatic', staticQ);
     useData(r);
     banner('ok', `+${r.points} แต้ม`, `สาขา ${r.branchName} · รวม ${r.total} แต้ม`);
-    $('stReceipt').value = '';
     show('vMain');
   } catch (e) {
     if (e.code === 'AUTH') { location.reload(); return; }
